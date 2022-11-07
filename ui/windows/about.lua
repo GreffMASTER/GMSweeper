@@ -91,7 +91,7 @@ function WindowAbout.createWindow()
                 color = {0,0,1},
                 text = "View Github page",
                 textal = "center",
-                href = "https://github.com/GreffMASTER"
+                href = "https://github.com/GreffMASTER/GMSweeper"
             },
             gmui.Button:new {
                 xpos = 90 - 30,
