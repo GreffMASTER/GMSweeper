@@ -18,7 +18,7 @@ local sweepstyle = gmui.Style:new({ -- custom style for the grid buttons
 
 local perf_win = nil
 -- Global variables
-_Version = "RC 1"
+_Version = "1.0"
 _GridW = 10
 _GridH = 10
 _Mines = 10

@@ -11,6 +11,12 @@ To start a new game, press the `Game` button in the top-left corner of the windo
 To reset the current game, press the button with the face on it in the middle of the window.  
 To see the highscore table, press the `Scores` button next to the `Game` button.
 
+## How to install
+Go to the [latest release](https://github.com/GreffMASTER/GMSweeper/releases/latest) and download the version for your platform.  
+Alternatively you can download the .love file and run it in the Löve2d executable.  
+To do that, you need to download the [Löve2d framework](https://love2d.org/) and install it on your system.  
+After installing it, just drag the .love file onto the executable.
+
 ## Command line parameters
 You can run the game directly in the custom difficulty by specifying the width, height and mine count in the command line parameters.  
 If only parameter is provided, the width and height of the grid will equal to that parameter.  
