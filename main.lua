@@ -16,9 +16,8 @@ local sweepstyle = gmui.Style:new({ -- custom style for the grid buttons
     bt_color = {0.6,0.6,0.6}
 })
 
-local perf_win = nil
 -- Global variables
-_Version = "1.0"
+_Version = "1.0.1"
 _GridW = 10
 _GridH = 10
 _Mines = 10
@@ -313,10 +312,11 @@ local function resetGame()
     dangers = {}
     gameover = false
     youwin = false
+    started = false
+    paused = false
     resetb.icon = faces[1]
     tilegrid = love.graphics.newQuad(0, 0, 24*_GridW, 24*_GridH, 24, 24)
     minesleft = _Mines
-    started = false
     timer = 0
 end
 

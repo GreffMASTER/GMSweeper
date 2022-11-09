@@ -1,7 +1,7 @@
 function love.conf(t)
     t.identity = "gmsweeper"
     t.version = "11.3"
-    t.window.vsync = 0
+    t.window.vsync = true
     t.window.title = "GMSweeper"
     t.window.width = 280
     t.window.height = 320
