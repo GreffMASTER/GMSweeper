@@ -135,6 +135,10 @@ function Window:mousepressed( mx, my, button, istouch, presses )
             self.focused = false
             return false
         end
+    else
+        if mx >= self.xpos and mx <= self.xpos+self.w and my >= self.ypos and my <= self.ypos+self.h then
+            return true
+        end
     end
 end
 

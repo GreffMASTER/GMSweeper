@@ -12,6 +12,7 @@ local Button = {
     icon = nil,
     toggle = false,
     disabled = false,
+    onrelease = true,
     func = nil,
     altfunc = nil
 }
@@ -78,11 +79,28 @@ end
 
 function Button:mousepressed( mx, my, button, istouch, presses )
     self.mpressed = true
-    if mx >= self.x and mx <= self.x + self.w and my >= self.y and my <= self.y + self.h then
-        if self.toggle then
-            self.toggled = not self.toggled
-        else
-            self.clicked = true
+    
+    if mx >= self.x-1 and mx <= self.x + self.w+1 and my >= self.y-1 and my <= self.y + self.h+1 then
+        if not self.diabled then
+            if not self.toggle then
+                self.clicked = true
+            end
+        else return 0 end
+        if not self.disabled and self.clicked then
+            if not self.onrelease then
+                if button == 1 then
+                    if type(self.func) == "function" then self.func(self)
+                    elseif type(self.func) == "table" then self.func[1](self.func[2]) end
+                elseif button == 2 then
+                    if self.altfunc then
+                        if type(self.altfunc) == "function" then self.altfunc(self)
+                        elseif type(self.altfunc) == "table" then self.altfunc[1](self.altfunc[2]) end
+                    else
+                        if type(self.func) == "function" then self.func(self)
+                        elseif type(self.func) == "table" then self.func[1](self.func[2]) end
+                    end
+                end
+            end
         end
         return button
     end
@@ -93,16 +111,18 @@ function Button:mousereleased( mx, my, button, istouch, presses )
     self.mpressed = false
     if mx >= self.x-1 and mx <= self.x + self.w+1 and my >= self.y-1 and my <= self.y + self.h+1 then
         if not self.disabled and self.clicked then
-            if button == 1 then
-                if type(self.func) == "function" then self.func(self)
-                elseif type(self.func) == "table" then self.func[1](self.func[2]) end
-            elseif button == 2 then
-                if self.altfunc then
-                    if type(self.altfunc) == "function" then self.altfunc(self)
-                    elseif type(self.altfunc) == "table" then self.altfunc[1](self.altfunc[2]) end
-                else
+            if self.onrelease then
+                if button == 1 then
                     if type(self.func) == "function" then self.func(self)
                     elseif type(self.func) == "table" then self.func[1](self.func[2]) end
+                elseif button == 2 then
+                    if self.altfunc then
+                        if type(self.altfunc) == "function" then self.altfunc(self)
+                        elseif type(self.altfunc) == "table" then self.altfunc[1](self.altfunc[2]) end
+                    else
+                        if type(self.func) == "function" then self.func(self)
+                        elseif type(self.func) == "table" then self.func[1](self.func[2]) end
+                    end
                 end
             end
         end
@@ -122,12 +142,10 @@ end
 function Button:mousemoved( mx, my, dx, dy, istouch )
     if mx >= self.x-1 and mx <= self.x + self.w+1 and my >= self.y-1 and my <= self.y + self.h+1 then
         if not self.disabled then
-            --love.mouse.setCursor( cursors.hand )
             if self.mpressed then self.clicked = true
             else self.hover = true end
         end
     else
-        --love.mouse.setCursor( cursors.arrow )
         self.hover = false
         self.clicked = false
     end

@@ -17,7 +17,7 @@ local sweepstyle = gmui.Style:new({ -- custom style for the grid buttons
 })
 
 -- Global variables
-_Version = "1.0.1"
+_Version = "1.1"
 _GridW = 10
 _GridH = 10
 _Mines = 10
@@ -51,10 +51,13 @@ local faces = {
     love.graphics.newImage("graphics/coolface.png"),
     love.graphics.newImage("graphics/sleepface.png")
 }
-local flagg = love.graphics.newImage("graphics/flag.png")
-local flagcg = love.graphics.newImage("graphics/flagc.png")
-local mineg = love.graphics.newImage("graphics/mine.png")
-local tileg = love.graphics.newImage("graphics/tile.png"); tileg:setWrap("repeat")
+for k,v in pairs(faces) do
+    v:setFilter("nearest")
+end
+local flagg = love.graphics.newImage("graphics/flag.png"); flagg:setFilter("nearest")
+local flagcg = love.graphics.newImage("graphics/flagc.png"); flagcg:setFilter("nearest")
+local mineg = love.graphics.newImage("graphics/mine.png"); mineg:setFilter("nearest")
+local tileg = love.graphics.newImage("graphics/tile.png"); tileg:setWrap("repeat"); tileg:setFilter("nearest")
 local tilegrid = love.graphics.newQuad(0, 0, 24*10, 24*10, 24, 24)
 -- Danger number colors
 local dangercolors = {
@@ -67,6 +70,8 @@ local dangercolors = {
     {1,1,1},
     {0.5,0.5,0.5}
 }
+-- Playfield canvas
+local c_playfield = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight())
 -- Playfield tables
 local buttons = {}
 local minefield = {}
@@ -81,19 +86,21 @@ local gameover = false
 local youwin = false
 local paused = false
 local inwindow = false
+
+local redraw = true
 -- Local functions
 local function getMaxGridDimensions()
     local _, _, flags = love.window.getMode()
     local w, h = love.window.getDesktopDimensions(flags.display)
-    w = w - 40
-    h = h - 80
+    w = (w - 40)
+    h = (h - 80)
     _MaxGridW = math.ceil(w/24) - 1
     _MaxGridH = math.ceil(h/24) - 3
 end
 
 local function setWindowResolution(w, h)
-    local width = 44 + w*24
-    local height = 84 + h*24
+    local width = (44 + w*24)
+    local height = (84 + h*24)
     love.window.setMode(width, height)
     love.resize(love.graphics.getWidth(),love.graphics.getHeight())
 end
@@ -237,24 +244,24 @@ local function checkWinCondition()
             buttoncount = buttoncount + 1
         end
     end
-    if buttoncount == _Mines then
-        for ky,row in pairs(buttons) do -- make the rest of the tiles flagged
-            for kx,cell in pairs(row) do
-                cell.flagged = true
-                cell.icon = flagg
-            end
+    if buttoncount > _Mines then return end -- there are still uncovered tiles that dont have mines
+
+    for ky,row in pairs(buttons) do -- make the rest of the tiles flagged
+        for kx,cell in pairs(row) do
+            cell.flagged = true
+            cell.icon = flagg
         end
-        minesleft = 0
-        youwin = true
-        if _Mode ~= "custom" then
-            for k,v in ipairs(_Scores[_Mode]) do
-                if k > 10 then break end
-                if timer < v[2] then
-                    love.mousereleased(0, 0, 1) -- a quirky solution to a quirky problem
-                    windows.scoreentry.createWindow(timer,k)
-                    break
-                end
-            end
+    end
+    minesleft = 0
+    youwin = true
+    if _Mode == "custom" then return end
+    -- check if new score was made
+    for k,v in ipairs(_Scores[_Mode]) do
+        if k > 10 then break end
+        if timer < v[2] then
+            love.mousereleased(0, 0, 1) -- a quirky solution to a quirky problem
+            windows.scoreentry.createWindow(timer,k)
+            break
         end
     end
 end
@@ -278,6 +285,7 @@ local function leftclick(buttonobj)
         else buttons[y][x] = nil end
     end
     if not gameover then checkWinCondition() end
+    redraw = true
     collectgarbage()
 end
 
@@ -285,6 +293,7 @@ local function rightclick(buttonobj)
     buttonobj.flagged = not buttonobj.flagged
     if buttonobj.flagged then buttonobj.icon = flagg; minesleft = minesleft - 1
     else buttonobj.icon = nil; minesleft = minesleft + 1 end
+    redraw = true
 end
 -- GAME SETTINGS LOCAL FUNCTIONS
 local function resetGame()
@@ -294,7 +303,7 @@ local function resetGame()
         table.insert(buttons,{})
         for x=1,_GridW do
             local tmpbutt = gmui.Button:new({
-                xpos = (x*24),
+                xpos = x*24,
                 ypos = (y*24) + 40,
                 w = 20,
                 h = 20,
@@ -314,10 +323,10 @@ local function resetGame()
     youwin = false
     started = false
     paused = false
-    resetb.icon = faces[1]
-    tilegrid = love.graphics.newQuad(0, 0, 24*_GridW, 24*_GridH, 24, 24)
+    redraw = true
     minesleft = _Mines
     timer = 0
+    resetb.icon = faces[1]
 end
 
 local function startNewGame()
@@ -344,8 +353,17 @@ local function startNewGame()
     fileparser.saveScores(_Mode)
     setWindowResolution(_GridW, _GridH)
     resetGame()
+    tilegrid = love.graphics.newQuad(0, 0, 24*_GridW, 24*_GridH, 24, 24)
+    c_playfield = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight())
     resetb.xpos = love.graphics.getWidth()/2 - 15
     resetb.x = love.graphics.getWidth()/2 - 15
+    redraw = true -- redraw the playfield
+end
+
+local function deleteAllWindows()
+    for k,v in pairs(windows) do
+        if v.destroyWindow then v.destroyWindow() end
+    end
 end
 
 local function createUiElements() 
@@ -356,7 +374,11 @@ local function createUiElements()
     windows.about.addCreateEvent(setInWindowTrue)
     windows.scores.addDestroyEvent(setInWindowFalse)
     windows.scores.addCreateEvent(setInWindowTrue)
-    windows.scoreentry.addDestroyEvent(function(spot) fileparser.saveScores(_Mode); fileparser.saveSettings(); windows.scores.createWindow(spot) end)
+    windows.scoreentry.addDestroyEvent(function(spot)
+        fileparser.saveScores(_Mode)
+        fileparser.saveSettings()
+        windows.scores.createWindow(spot)
+    end)
     windows.scoreentry.addCreateEvent(setInWindowTrue)
 
     resetb = gmui.Button:new({  -- Reset button
@@ -382,23 +404,23 @@ local function createUiElements()
                 w = 40,
                 h = 14,
                 text = "Game",
-                func = windows.game.createWindow
+                func = function() deleteAllWindows(); windows.game.createWindow() end
             }),
             gmui.Button:new({   -- Scores button
-                xpos = 46,
+                xpos = 45,
                 ypos = 0,
                 w = 42,
                 h = 14,
                 text = "Scores",
-                func = function() windows.scores.createWindow(1) end
+                func = function() deleteAllWindows(); windows.scores.createWindow(1) end
             }),
             gmui.Button:new({   -- About button
-                xpos = 94,
+                xpos = 92,
                 ypos = 0,
                 w = 40,
                 h = 14,
                 text = "About",
-                func = windows.about.createWindow
+                func = function() deleteAllWindows(); windows.about.createWindow() end
             })
         }
     })   
@@ -424,8 +446,10 @@ end
 
 function love.update(dt)
     if timer < 999 and not isGameHalted() and started then timer = timer + dt end
-    for k,w in pairs(windows) do
-        if w.update then w.update(dt) end
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.update then w.update(dt) end
+        end
     end
 end
 
@@ -437,61 +461,82 @@ function love.draw()
     -- Draw background tiles
     love.graphics.draw(tileg, tilegrid, 22, 62)
     if not paused then
-            -- Draw buttons (covered tiles)
-            for ky,row in pairs(buttons) do
-                for kx,cell in pairs(row) do
-                    cell:draw()
-                end
-            end
-            -- Draw danger numbers
-            for ky,row in pairs(dangers) do
-                for kx,cell in pairs(row) do
-                    if cell > 0 and not buttons[ky][kx] then 
-                        love.graphics.setColor(dangercolors[cell])
-                        love.graphics.printf(cell,mainfont,kx*24 + 4,ky*24+39, 24)
+        if redraw then -- Redraw playfield
+            -- Draw on playfield canvas
+            c_playfield:renderTo(function()
+                love.graphics.clear(0,0,0,0)
+                -- Draw buttons (covered tiles)
+                for ky,row in pairs(buttons) do
+                    for kx,cell in pairs(row) do
+                        cell:draw()
                     end
                 end
-            end
-            love.graphics.setColor(1,1,1)
-        if gameover then    -- Draw gameover state
-            -- Draw fail position
-            love.graphics.setColor(1,0,0)
-            love.graphics.rectangle("fill",failcoords[1]*24 + 22,failcoords[2]*24+62,24,24)
-            love.graphics.setColor(1,1,1)
-            -- Draw mines
-            for ky,row in pairs(minefield) do
-                for kx,cell in pairs(row) do
-                    if cell then
-                        if not buttons[ky][kx] then love.graphics.draw(mineg,kx*24 + 1,ky*24+41) end
+                -- Draw danger numbers
+                for ky,row in pairs(dangers) do
+                    for kx,cell in pairs(row) do
+                        if cell > 0 and not buttons[ky][kx] then 
+                            love.graphics.setColor(dangercolors[cell])
+                            love.graphics.printf(cell,mainfont,kx*24 + 4,ky*24+39, 24)
+                        end
                     end
                 end
-            end
+                -- Draw game over state
+                if gameover then
+                    -- Draw fail position
+                    love.graphics.setColor(1,0,0)
+                    love.graphics.rectangle("fill",failcoords[1]*24+22,failcoords[2]*24+62,24,24)
+                    love.graphics.setColor(1,1,1)
+                    -- Draw mines
+                    for ky,row in pairs(minefield) do
+                        for kx,cell in pairs(row) do
+                            if cell then
+                                if not buttons[ky][kx] then love.graphics.draw(mineg,kx*24+1,ky*24+41) end
+                            end
+                        end
+                    end
+                end
+            end)
+            redraw = false
         end
+        love.graphics.setColor(1,1,1)
+        love.graphics.draw(c_playfield) -- Draw playfield
+        -- Draw the clicked button on the field
+        for ky,row in pairs(buttons) do
+            for kx,cell in pairs(row) do
+                if cell.clicked then cell:draw(); break end
+            end
+        end 
     end
     topribbon:draw()    -- Draw top ribbon
     -- Draw windows
-    for k,w in pairs(windows) do
-        if w.draw then w.draw() end
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.draw then w.draw() end
+        end
     end
 end
 
 function love.keypressed(key, scancode, isrepeat)
-    for k,w in pairs(windows) do
-        if w.keypressed then w.keypressed(key, scancode, isrepeat) end
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.keypressed then w.keypressed(key, scancode, isrepeat) end
+        end
     end
 end
 
 function love.keyreleased(key, scancode, isrepeat)
-    for k,w in pairs(windows) do
-        if w.keyreleased then w.keyreleased(key, scancode, isrepeat) end
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.keyreleased then w.keyreleased(key, scancode, isrepeat) end
+        end
     end
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
-    if not inwindow then resetb:mousepressed(x, y, button, istouch, presses) end
+    -- Playefield pressed logic
     if not isGameHalted() then
         if x > 20 and x < 24 * _GridW + 20 and y > 60 and y < 24 * _GridH + 60 then
-            if button == 1 then resetb.icon = faces[2] end
+            if button == 1 then resetb.icon = faces[2] end -- Set main button to :o face
             for ky,row in pairs(buttons) do
                 for kx,cell in pairs(row) do
                     cell:mousepressed(x, y, button, istouch, presses)
@@ -499,34 +544,52 @@ function love.mousepressed(x, y, button, istouch, presses)
             end
         end
     end
-    if not inwindow then topribbon:mousepressed(x, y, button, istouch, presses)
-    else
-        for k,w in pairs(windows) do
-            if w.mousepressed then w.mousepressed(x, y, button, istouch, presses) end
-        end
+    -- Reset button pressed logic
+    if not inwindow then
+        resetb:mousepressed(x, y, button, istouch, presses)
     end
-end
-
-function love.mousereleased(x, y, button, istouch, presses)
-    if not inwindow then resetb:mousereleased(x, y, button, istouch, presses) end
-    if not isGameHalted() then
-        for ky,row in pairs(buttons) do
-            for kx,cell in pairs(row) do
-                if cell.mousereleased then cell:mousereleased(x, y, button, istouch, presses) end
+    -- Window pressed logic
+    local onwindow = false
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.mousepressed then
+                if w.mousepressed(x, y, button, istouch, presses) then onwindow = true end
             end
         end
     end
-    if not inwindow then setFace() end
-    if not inwindow then topribbon:mousereleased(x, y, button, istouch, presses)
-    else
-        for k,w in pairs(windows) do
-            if w.mousereleased then w.mousereleased(x, y, button, istouch, presses) end
+    -- Ribbon pressed logic
+    if not windows.scoreentry.isWindowOpen() and not onwindow then topribbon:mousepressed(x, y, button, istouch, presses) end
+end
+
+function love.mousereleased(x, y, button, istouch, presses)
+    -- Playefield released logic
+    if not isGameHalted() then
+        for ky,row in pairs(buttons) do
+            for kx,cell in pairs(row) do
+                cell:mousereleased(x, y, button, istouch, presses)
+            end
         end
     end
+    -- Reset button released logic
+    if not inwindow then
+        resetb:mousereleased(x, y, button, istouch, presses)
+        setFace()
+    end
+    -- Window released logic
+    local onwindow = false
+    if inwindow then
+        for k,w in pairs(windows) do
+            if w.mousereleased then
+                if w.mousereleased(x, y, button, istouch, presses) then onwindow = true end
+            end
+        end
+    end
+    -- Ribbon released logic
+    if not windows.scoreentry.isWindowOpen() and not onwindow then topribbon:mousereleased(x, y, button, istouch, presses) end
 end
 
 function love.mousemoved(mx, my, dx, dy, istouch)
-    if not inwindow then resetb:mousemoved(mx, my, dx, dy, istouch) end
+    -- Playfield mmoved logic
     if mx > 20 and mx < 24 * _GridW + 20 and my > 60 and my < 24 * _GridH + 60 then
         if not isGameHalted() then
             for ky,row in pairs(buttons) do
@@ -536,8 +599,14 @@ function love.mousemoved(mx, my, dx, dy, istouch)
             end
         end
     end
-    if not inwindow then topribbon:mousemoved(mx, my, dx, dy, istouch)
-    else
+    -- Rest of mmoved logic
+    topribbon:mousemoved(mx, my, dx, dy, istouch)
+    if not inwindow then
+        resetb:mousemoved(mx, my, dx, dy, istouch)
+        return
+    end
+    -- Window mmoved logic
+    if inwindow then
         for k,w in pairs(windows) do
             if w.mousemoved then w.mousemoved(mx, my, dx, dy, istouch) end
         end

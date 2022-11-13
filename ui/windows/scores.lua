@@ -43,11 +43,13 @@ function WindowScores.draw()
 end
 
 function WindowScores.mousepressed(x, y, button, istouch, presses)
-    if win and win.mousepressed then win:mousepressed(x, y, button, istouch, presses) end
+    if win and win.mousepressed then return win:mousepressed(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowScores.mousereleased(x, y, button, istouch, presses)
-    if win and win.mousereleased then win:mousereleased(x, y, button, istouch, presses) end
+    if win and win.mousereleased then return win:mousereleased(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowScores.mousemoved(mx, my, dx, dy, istouch)
@@ -165,6 +167,10 @@ function WindowScores.createWindow(spot)
     win:updateChildrenPos()
     win.focused = true
     if onCreate then onCreate() end
+end
+
+function WindowScores.destroyWindow()
+    windestroy()
 end
 
 return WindowScores

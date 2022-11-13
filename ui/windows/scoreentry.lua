@@ -60,11 +60,13 @@ function WindowScoreEntry.keyreleased(key, scancode, isrepeat)
 end
 
 function WindowScoreEntry.mousepressed(x, y, button, istouch, presses)
-    if win and win.mousepressed then win:mousepressed(x, y, button, istouch, presses) end
+    if win and win.mousepressed then return win:mousepressed(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowScoreEntry.mousereleased(x, y, button, istouch, presses)
-    if win and win.mousereleased then win:mousereleased(x, y, button, istouch, presses) end
+    if win and win.mousereleased then return win:mousereleased(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowScoreEntry.mousemoved(mx, my, dx, dy, istouch)
@@ -134,6 +136,11 @@ function WindowScoreEntry.createWindow(time,spot)
     win:updateChildrenPos()
     win.focused = true
     if onCreate then onCreate() end
+end
+
+function WindowScoreEntry.isWindowOpen()
+    if win then return true end
+    return false
 end
 
 return WindowScoreEntry

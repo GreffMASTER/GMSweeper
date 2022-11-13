@@ -1,6 +1,6 @@
 local display = {}
 
-local displaybg = love.graphics.newImage("graphics/display_bg.png")
+local displaybg = love.graphics.newImage("graphics/display_bg.png"); displaybg:setFilter("nearest")
 local displaynums = {
     ["-"] = love.graphics.newImage("graphics/display_-.png"),
     ["0"] = love.graphics.newImage("graphics/display_0.png"),
@@ -14,6 +14,10 @@ local displaynums = {
     ["8"] = love.graphics.newImage("graphics/display_8.png"),
     ["9"] = love.graphics.newImage("graphics/display_9.png")
 }
+
+for k,v in pairs(displaynums) do
+    v:setFilter("nearest")
+end
 
 local function getDigitCount(value)
     return string.len(tostring(value))

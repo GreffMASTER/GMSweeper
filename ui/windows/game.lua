@@ -44,11 +44,13 @@ function WindowGame.draw()
 end
 
 function WindowGame.mousepressed(x, y, button, istouch, presses)
-    if win and win.mousepressed then win:mousepressed(x, y, button, istouch, presses) end
+    if win and win.mousepressed then return win:mousepressed(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowGame.mousereleased(x, y, button, istouch, presses)
-    if win and win.mousereleased then win:mousereleased(x, y, button, istouch, presses) end
+    if win and win.mousereleased then return win:mousereleased(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowGame.mousemoved(mx, my, dx, dy, istouch)
@@ -314,6 +316,10 @@ function WindowGame.createWindow()
     end
     win.focused = true
     if onCreate then onCreate() end
+end
+
+function WindowGame.destroyWindow()
+    windestroy()
 end
 
 return WindowGame

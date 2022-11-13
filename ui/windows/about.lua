@@ -36,11 +36,13 @@ function WindowAbout.draw()
 end
 
 function WindowAbout.mousepressed(x, y, button, istouch, presses)
-    if win and win.mousepressed then win:mousepressed(x, y, button, istouch, presses) end
+    if win and win.mousepressed then return win:mousepressed(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowAbout.mousereleased(x, y, button, istouch, presses)
-    if win and win.mousereleased then win:mousereleased(x, y, button, istouch, presses) end
+    if win and win.mousereleased then return win:mousereleased(x, y, button, istouch, presses) end
+    return false
 end
 
 function WindowAbout.mousemoved(mx, my, dx, dy, istouch)
@@ -106,6 +108,10 @@ function WindowAbout.createWindow()
     win:updateChildrenPos()
     win.focused = true
     if onCreate then onCreate() end
+end
+
+function WindowAbout.destroyWindow()
+    windestroy()
 end
 
 return WindowAbout
