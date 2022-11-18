@@ -2,13 +2,11 @@ local gmui = require "lib.gmui"
 
 local WindowAbout = {}
 
-local mineg = love.graphics.newImage("graphics/mine.png")
-mineg:setFilter("nearest")
+local mineg = love.graphics.newImage("graphics/mine.png"); mineg:setFilter("nearest")
 
 local win = nil
 
-local onDestroy = nil
-local onCreate = nil
+local events = {}
 
 local function checkIfFunc(func)
     if type(func) ~= "function" then return false end
@@ -18,17 +16,12 @@ end
 local function windestroy()
     win = nil
     collectgarbage()
-    if onDestroy then onDestroy() end
+    if events['destroy'] then events['destroy']() end
 end
 
-function WindowAbout.addDestroyEvent(func)
-    if not checkIfFunc(func) then return end
-    onDestroy = func
-end
-
-function WindowAbout.addCreateEvent(func)
-    if not checkIfFunc(func) then return end
-    onCreate = func
+function WindowAbout.addEvent(eventname,func)
+    if type(eventname) ~= "string" then error("Event name must be a string!") end
+    events[eventname] = func
 end
 
 function WindowAbout.draw()
@@ -52,8 +45,8 @@ end
 function WindowAbout.createWindow()
     if win then return end
     win = gmui.Window:new {
-        xpos = love.graphics.getWidth() / 2 - 90,
-        ypos = love.graphics.getHeight() / 2 - 80,
+        xpos = love.graphics.getWidth() / 2 / _Scale - 90,
+        ypos = love.graphics.getHeight() / 2 / _Scale - 80,
         w = 180,
         h = 170,
         movable = true,
@@ -107,7 +100,7 @@ function WindowAbout.createWindow()
     }
     win:updateChildrenPos()
     win.focused = true
-    if onCreate then onCreate() end
+    if events['create'] then events['create']() end
 end
 
 function WindowAbout.destroyWindow()

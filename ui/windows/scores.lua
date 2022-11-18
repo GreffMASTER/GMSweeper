@@ -4,8 +4,7 @@ local WindowScores = {}
 
 local win = nil
 
-local onDestroy = nil
-local onCreate = nil
+local events = {}
 
 local function checkIfFunc(func)
     if type(func) ~= "function" then return false end
@@ -15,17 +14,12 @@ end
 local function windestroy()
     win = nil
     collectgarbage()
-    if onDestroy then onDestroy() end
+    if events['destroy'] then events['destroy']() end
 end
 
-function WindowScores.addDestroyEvent(func)
-    if not checkIfFunc(func) then return end
-    onDestroy = func
-end
-
-function WindowScores.addCreateEvent(func)
-    if not checkIfFunc(func) then return end
-    onCreate = func
+function WindowScores.addEvent(eventname,func)
+    if type(eventname) ~= "string" then error("Event name must be a string!") end
+    events[eventname] = func
 end
 
 local function setLists(diffi)
@@ -60,8 +54,8 @@ function WindowScores.createWindow(spot)
     spot = spot or 1
     if win then return end
     win = gmui.Window:new {
-        xpos = love.graphics.getWidth() / 2 - 90,
-        ypos = love.graphics.getHeight() / 2 - 90,
+        xpos = love.graphics.getWidth() / 2 / _Scale - 90,
+        ypos = love.graphics.getHeight() / 2 / _Scale - 90,
         w = 180,
         h = 190,
         movable = true,
@@ -166,7 +160,7 @@ function WindowScores.createWindow(spot)
     win.children[5].selected = spot
     win:updateChildrenPos()
     win.focused = true
-    if onCreate then onCreate() end
+    if events['create'] then events['create']() end
 end
 
 function WindowScores.destroyWindow()

@@ -17,12 +17,15 @@ local sweepstyle = gmui.Style:new({ -- custom style for the grid buttons
 })
 
 -- Global variables
-_Version = "1.1"
+_Version = "1.1.1"
 _GridW = 10
 _GridH = 10
 _Mines = 10
-_Mode = "custom"
+_Mode = "easy"
 _Username = "Player"
+_MinScale = 1
+_MaxScale = 2
+_Scale = love.graphics.getDPIScale()
 -- Settings vars (for use in the new game gui)
 _SetMode = _Mode
 _SetGridW = _GridW
@@ -72,6 +75,7 @@ local dangercolors = {
 }
 -- Playfield canvas
 local c_playfield = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight())
+local c_all = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight())
 -- Playfield tables
 local buttons = {}
 local minefield = {}
@@ -86,23 +90,23 @@ local gameover = false
 local youwin = false
 local paused = false
 local inwindow = false
-
 local redraw = true
 -- Local functions
 local function getMaxGridDimensions()
     local _, _, flags = love.window.getMode()
     local w, h = love.window.getDesktopDimensions(flags.display)
-    w = (w - 40)
-    h = (h - 80)
+    w = (w / _Scale - 40) 
+    h = (h / _Scale - 80)
     _MaxGridW = math.ceil(w/24) - 1
     _MaxGridH = math.ceil(h/24) - 3
 end
 
 local function setWindowResolution(w, h)
-    local width = (44 + w*24)
-    local height = (84 + h*24)
+    local width = (44 + w*24) * _Scale
+    local height = (84 + h*24) * _Scale
     love.window.setMode(width, height)
-    love.resize(love.graphics.getWidth(),love.graphics.getHeight())
+    topribbon:resize(love.graphics.getWidth(), love.graphics.getHeight())
+    redraw = true
 end
 
 local function isGameHalted()
@@ -145,6 +149,7 @@ local function setInWindowFalse()
 end
 
 local function validateParams()
+    if _Mode ~= "custom" then return end
     if _GridH < 6 then _GridH = 6 end
     if _GridW < 6 then _GridW = 6 end
     if _GridW > _MaxGridW then _GridW = _MaxGridW end
@@ -265,6 +270,12 @@ local function checkWinCondition()
         end
     end
 end
+
+local function deleteAllWindows()
+    for k,v in pairs(windows) do
+        if v.destroyWindow then v.destroyWindow() end
+    end
+end
 -- GRID BUTTON FUNCTIONS
 local function leftclick(buttonobj)
     local x = buttonobj.row
@@ -295,6 +306,25 @@ local function rightclick(buttonobj)
     else buttonobj.icon = nil; minesleft = minesleft + 1 end
     redraw = true
 end
+
+local function rescalePlus(but)
+    _Scale = _Scale + 0.5
+    if _Scale > _MaxScale then _Scale = _MinScale end
+    but.text = _Scale.."x"
+    setWindowResolution(_GridW,_GridH)
+    fileparser.saveScale()
+    getMaxGridDimensions()
+end
+
+local function rescaleMinus(but)
+    _Scale = _Scale - 0.5
+    if _Scale < _MinScale then _Scale = _MaxScale end
+    but.text = _Scale.."x"
+    setWindowResolution(_GridW,_GridH)
+    fileparser.saveScale()
+    getMaxGridDimensions()
+end
+
 -- GAME SETTINGS LOCAL FUNCTIONS
 local function resetGame()
     buttons = {}
@@ -349,39 +379,40 @@ local function startNewGame()
         _Mines = _SetMines
     end
     validateParams()
+    fileparser.saveScale()
     fileparser.saveSettings()
     fileparser.saveScores(_Mode)
     setWindowResolution(_GridW, _GridH)
     resetGame()
     tilegrid = love.graphics.newQuad(0, 0, 24*_GridW, 24*_GridH, 24, 24)
-    c_playfield = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight())
-    resetb.xpos = love.graphics.getWidth()/2 - 15
-    resetb.x = love.graphics.getWidth()/2 - 15
+    c_playfield = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight()); c_playfield:setFilter("nearest")
+    c_all = love.graphics.newCanvas(love.graphics.getWidth(),love.graphics.getHeight()); c_all:setFilter("nearest")
+    resetb.x = love.graphics.getWidth()/2/_Scale - 15 -- Move the reset button to the center
+    topribbon.children.scale.xpos = love.graphics.getWidth()/_Scale-38
+    topribbon.children.scale.x = love.graphics.getWidth()/_Scale-34
     redraw = true -- redraw the playfield
 end
 
-local function deleteAllWindows()
-    for k,v in pairs(windows) do
-        if v.destroyWindow then v.destroyWindow() end
+local function createUiElements()
+    -- Add window events
+    for k,w in pairs(windows) do
+        if k == "game" then
+            w.addEvent('newgame',startNewGame)
+        end
+        if k == "scoreentry" then
+            w.addEvent('destroy',function(spot)
+                fileparser.saveScores(_Mode)
+                fileparser.saveSettings()
+                windows.scores.createWindow(spot)
+            end)
+            w.addEvent('create',setInWindowTrue)
+        else
+            w.addEvent('destroy',setInWindowFalse)
+            w.addEvent('create',setInWindowTrue)
+        end
     end
-end
 
-local function createUiElements() 
-    windows.game.addDestroyEvent(setInWindowFalse)
-    windows.game.addCreateEvent(setInWindowTrue)
-    windows.game.addNewGameEvent(startNewGame)
-    windows.about.addDestroyEvent(setInWindowFalse)
-    windows.about.addCreateEvent(setInWindowTrue)
-    windows.scores.addDestroyEvent(setInWindowFalse)
-    windows.scores.addCreateEvent(setInWindowTrue)
-    windows.scoreentry.addDestroyEvent(function(spot)
-        fileparser.saveScores(_Mode)
-        fileparser.saveSettings()
-        windows.scores.createWindow(spot)
-    end)
-    windows.scoreentry.addCreateEvent(setInWindowTrue)
-
-    resetb = gmui.Button:new({  -- Reset button
+    resetb = gmui.Button:new {  -- Reset button
         xpos = love.graphics.getWidth()/2 - 15,
         ypos = 26,
         w = 30,
@@ -389,8 +420,9 @@ local function createUiElements()
         icon = faces[1],
         func = resetGame,
         style = sweepstyle
-    })
-    topribbon = gmui.Panel:new({    -- Top ribbon
+    }
+
+    topribbon = gmui.Panel:new {    -- Top ribbon
         xpos = 2,
         ypos = 2,
         w = love.graphics.getWidth()-4,
@@ -398,40 +430,51 @@ local function createUiElements()
         anchor = "top",
         border = "in",
         children = {
-            gmui.Button:new({   -- New game button
+            game = gmui.Button:new {   -- New game button
                 xpos = 0,
                 ypos = 0,
                 w = 40,
                 h = 14,
                 text = "Game",
                 func = function() deleteAllWindows(); windows.game.createWindow() end
-            }),
-            gmui.Button:new({   -- Scores button
-                xpos = 45,
+            },
+            scores = gmui.Button:new {   -- Scores button
+                xpos = 44,
                 ypos = 0,
                 w = 42,
                 h = 14,
                 text = "Scores",
                 func = function() deleteAllWindows(); windows.scores.createWindow(1) end
-            }),
-            gmui.Button:new({   -- About button
-                xpos = 92,
+            },
+            about = gmui.Button:new {   -- About button
+                xpos = 90,
                 ypos = 0,
                 w = 40,
                 h = 14,
                 text = "About",
                 func = function() deleteAllWindows(); windows.about.createWindow() end
-            })
+            },
+            scale = gmui.Button:new {
+                xpos = love.graphics.getWidth() / _Scale - 32,
+                ypos = 0,
+                w = 30,
+                h = 14,
+                text = _Scale.."x",
+                func = rescalePlus,
+                altfunc = rescaleMinus
+            }
         }
-    })   
+    } -- top ribbon end
 end
 -- CALLBACK FUNCTIONS
 function love.load(args)
     getMaxGridDimensions()
+    fileparser.loadScale()
     fileparser.loadSettings()
     fileparser.loadScores("easy")
     fileparser.loadScores("medium")
     fileparser.loadScores("hard")
+    -- Parse arguments
     if #args > 0 then
         _SetMode = "custom"
         _SetGridW = tonumber(args[1])
@@ -454,66 +497,70 @@ function love.update(dt)
 end
 
 function love.draw()
-    resetb:draw()   -- Draw reset button
-    -- Draw number displays
-    display.draw(minesleft,3,love.graphics.getWidth() / 2 - 94,20)
-    display.draw(math.floor(timer),3,love.graphics.getWidth() / 2 + 30,20)
-    -- Draw background tiles
-    love.graphics.draw(tileg, tilegrid, 22, 62)
-    if not paused then
-        if redraw then -- Redraw playfield
-            -- Draw on playfield canvas
-            c_playfield:renderTo(function()
-                love.graphics.clear(0,0,0,0)
-                -- Draw buttons (covered tiles)
-                for ky,row in pairs(buttons) do
-                    for kx,cell in pairs(row) do
-                        cell:draw()
-                    end
-                end
-                -- Draw danger numbers
-                for ky,row in pairs(dangers) do
-                    for kx,cell in pairs(row) do
-                        if cell > 0 and not buttons[ky][kx] then 
-                            love.graphics.setColor(dangercolors[cell])
-                            love.graphics.printf(cell,mainfont,kx*24 + 4,ky*24+39, 24)
+    c_all:renderTo(function()
+        love.graphics.clear(0,0,0)
+        resetb:draw()   -- Draw reset button
+        -- Draw number displays
+        display.draw(minesleft,3,love.graphics.getWidth() / 2 / _Scale - 94,20)
+        display.draw(math.floor(timer),3,love.graphics.getWidth() / 2 / _Scale + 30,20)
+        -- Draw background tiles
+        love.graphics.draw(tileg, tilegrid, 22, 62)
+        if not paused then
+            if redraw then -- Redraw playfield
+                -- Draw on playfield canvas
+                c_playfield:renderTo(function()
+                    love.graphics.clear(0,0,0,0)
+                    -- Draw buttons (covered tiles)
+                    for ky,row in pairs(buttons) do
+                        for kx,cell in pairs(row) do
+                            cell:draw()
                         end
                     end
-                end
-                -- Draw game over state
-                if gameover then
-                    -- Draw fail position
-                    love.graphics.setColor(1,0,0)
-                    love.graphics.rectangle("fill",failcoords[1]*24+22,failcoords[2]*24+62,24,24)
-                    love.graphics.setColor(1,1,1)
-                    -- Draw mines
-                    for ky,row in pairs(minefield) do
+                    -- Draw danger numbers
+                    for ky,row in pairs(dangers) do
                         for kx,cell in pairs(row) do
-                            if cell then
-                                if not buttons[ky][kx] then love.graphics.draw(mineg,kx*24+1,ky*24+41) end
+                            if cell > 0 and not buttons[ky][kx] then 
+                                love.graphics.setColor(dangercolors[cell])
+                                love.graphics.printf(cell,mainfont,kx*24 + 4,ky*24+39, 24)
                             end
                         end
                     end
-                end
-            end)
-            redraw = false
-        end
-        love.graphics.setColor(1,1,1)
-        love.graphics.draw(c_playfield) -- Draw playfield
-        -- Draw the clicked button on the field
-        for ky,row in pairs(buttons) do
-            for kx,cell in pairs(row) do
-                if cell.clicked then cell:draw(); break end
+                    -- Draw game over state
+                    if gameover then
+                        -- Draw fail position
+                        love.graphics.setColor(1,0,0)
+                        love.graphics.rectangle("fill",failcoords[1]*24+22,failcoords[2]*24+62,24,24)
+                        love.graphics.setColor(1,1,1)
+                        -- Draw mines
+                        for ky,row in pairs(minefield) do
+                            for kx,cell in pairs(row) do
+                                if cell then
+                                    if not buttons[ky][kx] then love.graphics.draw(mineg,kx*24+1,ky*24+41) end
+                                end
+                            end
+                        end
+                    end
+                end)
+                redraw = false
             end
-        end 
-    end
-    topribbon:draw()    -- Draw top ribbon
-    -- Draw windows
-    if inwindow then
-        for k,w in pairs(windows) do
-            if w.draw then w.draw() end
+            love.graphics.setColor(1,1,1)
+            love.graphics.draw(c_playfield) -- Draw playfield
+            -- Draw only the clicked button on the field
+            for ky,row in pairs(buttons) do
+                for kx,cell in pairs(row) do
+                    if cell.clicked then cell:draw(); break end
+                end
+            end 
         end
-    end
+        topribbon:draw()    -- Draw top ribbon
+        -- Draw windows
+        if inwindow then
+            for k,w in pairs(windows) do
+                if w.draw then w.draw() end
+            end
+        end
+    end)
+    love.graphics.draw(c_all,0,0,0,_Scale,_Scale)
 end
 
 function love.keypressed(key, scancode, isrepeat)
@@ -533,6 +580,8 @@ function love.keyreleased(key, scancode, isrepeat)
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
+    x = x / _Scale
+    y = y / _Scale
     -- Playefield pressed logic
     if not isGameHalted() then
         if x > 20 and x < 24 * _GridW + 20 and y > 60 and y < 24 * _GridH + 60 then
@@ -562,6 +611,8 @@ function love.mousepressed(x, y, button, istouch, presses)
 end
 
 function love.mousereleased(x, y, button, istouch, presses)
+    x = x / _Scale
+    y = y / _Scale
     -- Playefield released logic
     if not isGameHalted() then
         for ky,row in pairs(buttons) do
@@ -589,6 +640,8 @@ function love.mousereleased(x, y, button, istouch, presses)
 end
 
 function love.mousemoved(mx, my, dx, dy, istouch)
+    mx = mx / _Scale
+    my = my / _Scale
     -- Playfield mmoved logic
     if mx > 20 and mx < 24 * _GridW + 20 and my > 60 and my < 24 * _GridH + 60 then
         if not isGameHalted() then
@@ -621,10 +674,4 @@ function love.focus(focus)
     end
 end
 
-function love.textinput(text)
-    windows.scoreentry.textinput(text)
-end
-
-function love.resize(w, h)
-    if topribbon then topribbon:resize(w, h) end
-end
+love.textinput = windows.scoreentry.textinput

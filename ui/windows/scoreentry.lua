@@ -4,8 +4,7 @@ local WindowScoreEntry = {}
 
 local win = nil
 
-local onDestroy = nil
-local onCreate = nil
+local events = {}
 
 local scorespot = nil
 local scoretime = nil
@@ -19,7 +18,7 @@ local function windestroy()
     win = nil
     collectgarbage()
     love.mouse.setCursor(love.mouse.getSystemCursor("arrow"))
-    if onDestroy then onDestroy(scorespot) end
+    if events['destroy'] then events['destroy'](scorespot) end
 end
 
 local function sendScore()
@@ -30,14 +29,9 @@ local function sendScore()
     windestroy()
 end
 
-function WindowScoreEntry.addDestroyEvent(func)
-    if not checkIfFunc(func) then return end
-    onDestroy = func
-end
-
-function WindowScoreEntry.addCreateEvent(func)
-    if not checkIfFunc(func) then return end
-    onCreate = func
+function WindowScoreEntry.addEvent(eventname,func)
+    if type(eventname) ~= "string" then error("Event name must be a string!") end
+    events[eventname] = func
 end
 
 function WindowScoreEntry.update(dt)
@@ -92,8 +86,8 @@ function WindowScoreEntry.createWindow(time,spot)
         sufix = "th"
     end
     win = gmui.Window:new {
-        xpos = love.graphics.getWidth() / 2 - 90,
-        ypos = love.graphics.getHeight() / 2 - 90,
+        xpos = love.graphics.getWidth() / 2 / _Scale - 90,
+        ypos = love.graphics.getHeight() / 2 / _Scale - 90,
         w = 180,
         h = 140,
         movable = true,
@@ -135,7 +129,7 @@ function WindowScoreEntry.createWindow(time,spot)
     }
     win:updateChildrenPos()
     win.focused = true
-    if onCreate then onCreate() end
+    if events['create'] then events['create']() end
 end
 
 function WindowScoreEntry.isWindowOpen()

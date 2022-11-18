@@ -83,10 +83,11 @@ function Panel:wheelmoved( x, y )
 end
 
 function Panel:resize( w, h )
+    _Scale = _Scale or 1
     if self.anchor == "bottom" then
 
-        self.w = w-4
-        self.ypos = h-self.h-2
+        self.w = w/_Scale-4
+        self.ypos = h/_Scale-self.h-2
         self.y = self.ypos
 
         if self.children then
@@ -97,7 +98,7 @@ function Panel:resize( w, h )
             end
         end
     elseif self.anchor == "top" then
-        self.w = w-4
+        self.w = w/_Scale-4
         self.ypos = 2
         self.y = self.ypos
 

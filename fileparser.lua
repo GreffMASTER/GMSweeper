@@ -103,4 +103,34 @@ function fileparser.saveScores(diffi)
     wfile:close()
 end
 
+function fileparser.loadScale()
+    local sfile = love.filesystem.getInfo("scale.txt")
+    if sfile then
+        local rfile = love.filesystem.newFile("scale.txt","r")
+        local outs = rfile:read()
+        rfile:close()
+        local out = tonumber(outs)
+        if type(out) == "number" then
+            if out % 0.5 ~= 0 then
+                _Scale = 1
+                return
+            end
+            if out > _MaxScale then out = _MaxScale end
+            if out < _MinScale then out = _MinScale end
+            _Scale = out
+            return
+        end
+        _Scale = 1
+    end
+    local wfile = love.filesystem.newFile("scale.txt","w")
+    wfile:write(tostring(_Scale))
+    wfile:close()
+end
+
+function fileparser.saveScale()
+    local wfile = love.filesystem.newFile("scale.txt","w")
+    wfile:write(tostring(_Scale))
+    wfile:close()
+end
+
 return fileparser
