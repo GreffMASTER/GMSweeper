@@ -31,10 +31,10 @@ function Button:draw()
     local tr,tg,tb,ta = love.graphics.getColor()    -- get current color to later reset it
 
     if self.clicked or self.toggled then
-    love.graphics.setColor(self.style.bt_shad_color)
-    love.graphics.rectangle("fill",self.x-2,self.y-2,self.w+4,self.h+4)
-    love.graphics.setColor(self.style.bt_light_color)
-    love.graphics.rectangle("fill",self.x,self.y,self.w+2,self.h+2)
+        love.graphics.setColor(self.style.bt_shad_color)
+        love.graphics.rectangle("fill",self.x-2,self.y-2,self.w+4,self.h+4)
+        love.graphics.setColor(self.style.bt_light_color)
+        love.graphics.rectangle("fill",self.x,self.y,self.w+2,self.h+2)
     else
         love.graphics.setColor(self.style.bt_light_color)
         love.graphics.rectangle("fill",self.x-2,self.y-2,self.w+4,self.h+4)

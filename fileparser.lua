@@ -115,8 +115,6 @@ function fileparser.loadScale()
                 _Scale = 1
                 return
             end
-            if out > _MaxScale then out = _MaxScale end
-            if out < _MinScale then out = _MinScale end
             _Scale = out
             return
         end

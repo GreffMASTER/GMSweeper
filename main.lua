@@ -17,14 +17,12 @@ local sweepstyle = gmui.Style:new({ -- custom style for the grid buttons
 })
 
 -- Global variables
-_Version = "1.1.1"
+_Version = "1.2"
 _GridW = 10
 _GridH = 10
 _Mines = 10
 _Mode = "easy"
 _Username = "Player"
-_MinScale = 1
-_MaxScale = 2
 _Scale = love.graphics.getDPIScale()
 -- Settings vars (for use in the new game gui)
 _SetMode = _Mode
@@ -91,6 +89,7 @@ local youwin = false
 local paused = false
 local inwindow = false
 local redraw = true
+local mouse = {false, false, false}
 -- Local functions
 local function getMaxGridDimensions()
     local _, _, flags = love.window.getMode()
@@ -104,6 +103,16 @@ end
 local function setWindowResolution(w, h)
     local width = (44 + w*24) * _Scale
     local height = (84 + h*24) * _Scale
+    local _, _, flags = love.window.getMode()
+    local dw, dh = love.window.getDesktopDimensions(flags.display)
+    if width > dw or height > dh then
+        _Scale = 1
+        topribbon.children.scale.text = _Scale.."x"
+        width = (44 + w*24) * _Scale
+        height = (84 + h*24) * _Scale
+        fileparser.saveScale()
+        getMaxGridDimensions()
+    end
     love.window.setMode(width, height)
     topribbon:resize(love.graphics.getWidth(), love.graphics.getHeight())
     redraw = true
@@ -224,7 +233,7 @@ end
 
 local function floodEmptySpaces(x, y)
     if x>0 and x<_GridW+1 and y>0 and y<_GridH+1 then
-        if buttons[y][x] and not buttons[y][x].flagged then
+        if buttons[y][x] and not buttons[y][x].flagged and not minefield[y][x] then
             buttons[y][x] = nil
             if dangers[y][x] == 0 then
                 floodEmptySpaces(x+1, y)
@@ -309,7 +318,6 @@ end
 
 local function rescalePlus(but)
     _Scale = _Scale + 0.5
-    if _Scale > _MaxScale then _Scale = _MinScale end
     but.text = _Scale.."x"
     setWindowResolution(_GridW,_GridH)
     fileparser.saveScale()
@@ -318,11 +326,56 @@ end
 
 local function rescaleMinus(but)
     _Scale = _Scale - 0.5
-    if _Scale < _MinScale then _Scale = _MaxScale end
+    if _Scale < 1 then _Scale = 1; return end
     but.text = _Scale.."x"
     setWindowResolution(_GridW,_GridH)
     fileparser.saveScale()
     getMaxGridDimensions()
+end
+
+local function drawChords(x, y)
+    if buttons[y][x] and not buttons[y][x].flagged then
+        love.graphics.draw(tileg, (x * 24) - 2, (y * 24) + 62 - 24)
+    end
+end
+
+local function checkSingleChord(x, y)
+    if x > 0 and x < _GridW + 1 and y > 0 and y < _GridH + 1 then
+        if buttons[y][x] and buttons[y][x].flagged then return true end
+    end
+    return false
+end
+
+local function clearSingleChord(x, y)
+    if x > 0 and x < _GridW + 1 and y > 0 and y < _GridH + 1 then
+        if buttons[y][x] then leftclick(buttons[y][x]) end
+    end
+end
+
+local function clearChords(x, y)
+    if x > 0 and x < _GridW + 1 and y > 0 and y < _GridH + 1 then
+        local dvalue = dangers[y][x]
+        local fcount = 0
+        if dvalue == 0 then return end
+        if checkSingleChord(x-1, y-1) then fcount = fcount + 1 end
+        if checkSingleChord(x, y-1) then fcount = fcount + 1 end
+        if checkSingleChord(x+1, y-1) then fcount = fcount + 1 end
+        if checkSingleChord(x-1, y) then fcount = fcount + 1 end
+        if checkSingleChord(x+1, y) then fcount = fcount + 1 end
+        if checkSingleChord(x-1, y+1) then fcount = fcount + 1 end
+        if checkSingleChord(x, y+1) then fcount = fcount + 1 end
+        if checkSingleChord(x+1, y+1) then fcount = fcount + 1 end
+        if fcount ~= dvalue then return end
+        clearSingleChord(x-1, y-1)
+        clearSingleChord(x, y-1)
+        clearSingleChord(x+1, y-1)
+        clearSingleChord(x-1, y)
+        clearSingleChord(x+1, y)
+        clearSingleChord(x-1, y+1)
+        clearSingleChord(x, y+1)
+        clearSingleChord(x+1, y+1)
+        redraw = true
+    end
 end
 
 -- GAME SETTINGS LOCAL FUNCTIONS
@@ -356,6 +409,7 @@ local function resetGame()
     redraw = true
     minesleft = _Mines
     timer = 0
+    mouse = {false, false, false}
     resetb.icon = faces[1]
 end
 
@@ -551,6 +605,31 @@ function love.draw()
                     if cell.clicked then cell:draw(); break end
                 end
             end 
+            if ((mouse[1] and mouse[2]) or mouse[3]) and not isGameHalted() then
+                local mx, my = love.mouse.getPosition()
+                if mx / _Scale > 22 and mx / _Scale < 22 + 24 * _GridW then
+                    if my / _Scale > 62 and my / _Scale < 62 + 24 * _GridH then
+                        mx = mx / _Scale
+                        my = my / _Scale
+                        local gx = math.floor((mx - 22) / 24) + 1
+                        local gy = math.floor((my - 62) / 24) + 1
+                        if not buttons[gy][gx] and dangers[gy][gx] > 0 then
+                            if gy > 1 then
+                                drawChords(gx,gy-1)
+                                if gx < _GridW then drawChords(gx+1,gy-1) end
+                                if gx > 1 then drawChords(gx-1,gy-1) end
+                            end
+                            if gx < _GridW then drawChords(gx+1,gy) end
+                            if gx > 1 then drawChords(gx-1,gy) end
+                            if gy < _GridH then
+                                drawChords(gx,gy+1)
+                                if gx < _GridW then drawChords(gx+1,gy+1) end
+                                if gx > 1 then drawChords(gx-1,gy+1) end
+                            end
+                        end
+                    end
+                end
+            end
         end
         topribbon:draw()    -- Draw top ribbon
         -- Draw windows
@@ -572,6 +651,9 @@ function love.keypressed(key, scancode, isrepeat)
 end
 
 function love.keyreleased(key, scancode, isrepeat)
+    if not inwindow and not paused then
+        if key == "f2" then resetb:func() end
+    end
     if inwindow then
         for k,w in pairs(windows) do
             if w.keyreleased then w.keyreleased(key, scancode, isrepeat) end
@@ -582,6 +664,9 @@ end
 function love.mousepressed(x, y, button, istouch, presses)
     x = x / _Scale
     y = y / _Scale
+    if not isGameHalted() and started then
+        mouse[button] = true
+    end
     -- Playefield pressed logic
     if not isGameHalted() then
         if x > 20 and x < 24 * _GridW + 20 and y > 60 and y < 24 * _GridH + 60 then
@@ -613,6 +698,25 @@ end
 function love.mousereleased(x, y, button, istouch, presses)
     x = x / _Scale
     y = y / _Scale
+    if not isGameHalted() and started then
+        local gx = math.floor((x - 22) / 24) + 1
+        local gy = math.floor((y - 62) / 24) + 1
+        if button == 1 then
+            if mouse[2] then
+                clearChords(gx, gy)
+            end
+        end
+        if button == 2 then
+            if mouse[1] then
+                clearChords(gx, gy)
+            end
+        end
+        if button == 3 then
+            clearChords(gx, gy)
+        end
+        mouse[button] = false
+    end
+
     -- Playefield released logic
     if not isGameHalted() then
         for ky,row in pairs(buttons) do
